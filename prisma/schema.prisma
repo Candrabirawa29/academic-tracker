@@ -17,23 +17,28 @@ model User {
 }
 
 model Task {
-  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId               String          @map("user_id") @db.Uuid
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String            @map("user_id") @db.Uuid
   title                String
   description          String?
-  status               String          @default("not_started")
-  currentDeadline      DateTime        @map("current_deadline")
-  progressPercent      Int             @default(0) @map("progress_percent")
-  difficulty           String          @default("medium")
-  basePriority         String          @default("medium")
-  estimatedTimeMinutes Int             @default(0) @map("estimated_time_minutes")
-  
-  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course               String?
+  status               String            @default("not_started")
+  currentDeadline      DateTime          @map("current_deadline")
+  progressPercent      Int               @default(0) @map("progress_percent")
+  progressUpdatedAt    DateTime          @default(now()) @map("progress_updated_at")
+  difficulty           String            @default("medium")
+  basePriority         String            @default("medium")
+  estimatedTimeMinutes Int               @default(0) @map("estimated_time_minutes")
+  lastNotifiedAt       DateTime?         @map("last_notified_at")
+
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   checklists           TaskChecklist[]
+  notificationLogs     NotificationLog[]
 
-  createdAt            DateTime        @default(now()) @map("created_at")
-  updatedAt            DateTime        @updatedAt @map("updated_at")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
 
+  @@index([userId])
   @@map("tasks")
 }
 
@@ -46,5 +51,20 @@ model TaskChecklist {
 
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  @@index([taskId])
   @@map("task_checklists")
+}
+
+model NotificationLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId           String   @map("task_id") @db.Uuid
+  notificationType String   @map("notification_type") // "deadline_h3d" | "deadline_h1d" | "deadline_h3h" | "deadline_h30m" | "overdue" | "preparation" | "stagnation_Xd"
+  channel          String   @default("whatsapp")
+  sentAt           DateTime @default(now()) @map("sent_at")
+
+  task             Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, notificationType, channel])
+  @@index([taskId])
+  @@map("notification_logs")
 }

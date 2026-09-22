@@ -1,135 +1,67 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { useTasks } from '@/hooks/useTasks';
+import TaskForm from '@/components/TaskForm';
+import TaskList from '@/components/TaskList';
+import StatsOverview from '@/components/dashboard/StatsOverview';
+import WorkloadChart from '@/components/dashboard/WorkloadChart';
+import FocusNowCard from '@/components/dashboard/FocusNowCard';
+import TomorrowChecklist from '@/components/dashboard/TomorrowChecklist';
+import {
+  computeStats,
+  computeWorkload,
+  getFocusTask,
+  getTomorrowChecklist,
+} from '@/lib/dashboard';
 
-// Struktur tipe data biar TypeScript nggak error
-type Checklist = { id: string; title: string; isChecked: boolean };
-type Task = { id: string; title: string; currentDeadline: string; checklists: Checklist[] };
+const USER_ID = '1070b337-6f92-4500-90df-f510c1bde9c9'; // GANTI DENGAN UUID LO
 
 export default function Home() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(false);
-  const USER_ID = "1070b337-6f92-4500-90df-f510c1bde9c9"; // GANTI DENGAN UUID LO
+  const { tasks, loading, createTask, toggleChecklist } = useTasks(USER_ID);
 
-  // Fungsi untuk narik data dari API GET
-  const fetchTasks = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/tasks?userId=${USER_ID}`);
-      const result = await response.json();
-      if (result.success) {
-        setTasks(result.data);
-      }
-    } catch (error) {
-      console.error('Gagal mengambil data:', error);
-    }
-  }, [USER_ID]);
+  const stats = useMemo(() => computeStats(tasks), [tasks]);
+  const workload = useMemo(() => computeWorkload(tasks), [tasks]);
+  const focusTask = useMemo(() => getFocusTask(tasks), [tasks]);
+  const tomorrowItems = useMemo(() => getTomorrowChecklist(tasks), [tasks]);
 
-  // Load data saat komponen pertama kali dirender
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-
-  const form = e.currentTarget; // simpan referensi form di sini, sebelum await manapun
-  const formData = new FormData(form);
-
-  const payload = {
-    userId: "1070b337-6f92-4500-90df-f510c1bde9c9",
-    title: formData.get('title'),
-    description: formData.get('description'),
-    currentDeadline: formData.get('deadline'),
-    checklists: [
-      {
-        title: formData.get('preparation'),
-        type: "preparation_item"
-      }
-    ]
-  };
-
-  try {
-    const response = await fetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      alert('Tugas dan barang bawaan berhasil disimpan!');
-      form.reset(); // pakai variabel yang udah disimpan, bukan e.currentTarget
-      fetchTasks();
-    } else {
-      alert('Gagal nyimpen tugas.');
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setLoading(false);
-  }
-};
+  const today = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
 
   return (
-    <main className="min-h-screen p-8 bg-gray-100 font-sans text-gray-900">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* Kolom Kiri: Form Input */}
-        <div className="bg-white p-6 rounded-xl shadow-md h-fit">
-          <h2 className="text-xl font-bold mb-4">Tambah Agenda</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1">Nama Tugas</label>
-              <input name="title" required type="text" className="w-full border p-2 rounded-lg" placeholder="Contoh: Laporan Web" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1">Deadline</label>
-              <input name="deadline" required type="datetime-local" className="w-full border p-2 rounded-lg" />
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-              <label className="block text-sm font-bold text-red-700 mb-1">🎒 Barang Wajib Bawa</label>
-              <input name="preparation" required type="text" className="w-full border p-2 rounded-lg" placeholder="Contoh: Hardcopy Laporan" />
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
-              {loading ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          </form>
-        </div>
+    <main className="min-h-screen p-6 md:p-8 bg-gray-100 font-sans text-gray-900">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h1 className="text-2xl font-bold">Good day 👋</h1>
+          <p className="text-gray-500">{today}</p>
+        </motion.div>
 
-        {/* Kolom Kanan: Dashboard List Tugas */}
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="text-2xl font-bold">🔥 Focus Now</h2>
-          {tasks.length === 0 ? (
-            <p className="text-gray-500 italic">Belum ada tugas. Santai dulu, Damar.</p>
-          ) : (
-            tasks.map((task) => (
-              <div key={task.id} className="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500 flex flex-col md:flex-row justify-between items-start md:items-center">
-                <div>
-                  <h3 className="text-lg font-bold">{task.title}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    🗓️ Deadline: {new Date(task.currentDeadline).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
-                  </p>
-                </div>
-                
-                {/* List Barang Bawaan */}
-                <div className="mt-4 md:mt-0 bg-gray-50 p-3 rounded-lg min-w-[200px]">
-                  <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Preparation Check</p>
-                  <ul className="space-y-1">
-                    {task.checklists.map((item) => (
-                      <li key={item.id} className="text-sm flex items-center gap-2">
-                        <input type="checkbox" defaultChecked={item.isChecked} className="w-4 h-4 text-blue-600" />
-                        <span className={item.isChecked ? 'line-through text-gray-400' : 'text-red-600 font-medium'}>
-                          {item.title}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))
-          )}
+        <StatsOverview stats={stats} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <FocusNowCard task={focusTask} />
+            <WorkloadChart data={workload} />
+
+            <div>
+              <h2 className="text-xl font-bold mb-4">📚 Semua Tugas</h2>
+              <TaskList tasks={tasks} onToggleChecklist={toggleChecklist} />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <TaskForm userId={USER_ID} loading={loading} onSubmit={createTask} />
+            <TomorrowChecklist items={tomorrowItems} onToggle={toggleChecklist} />
+          </div>
         </div>
-        
       </div>
     </main>
   );
