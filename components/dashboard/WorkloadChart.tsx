@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   ReferenceLine,
   type TooltipProps,
+  TooltipContentProps,
 } from 'recharts';
 import { useMemo, useState } from 'react';
 import type { WorkloadPoint } from '@/lib/dashboard';
@@ -21,8 +22,9 @@ function CustomTooltip({
   active,
   payload,
   label,
-}: TooltipProps<number, string>) {
+}: TooltipContentProps<number, string>) {
   if (!active || !payload?.length) return null;
+
   const value = payload[0].value as number;
 
   return (

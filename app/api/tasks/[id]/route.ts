@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { rankTasksByFocus } from '@/lib/scoring';
-import type { Task } from '@/lib/types';
+import type { ChecklistType, Task } from '@/lib/types';
 
 export async function GET(request: Request) {
   try {
@@ -32,7 +32,12 @@ export async function GET(request: Request) {
       difficulty: t.difficulty,
       basePriority: t.basePriority,
       estimatedTimeMinutes: t.estimatedTimeMinutes,
-      checklists: t.checklists,
+      checklists: t.checklists.map((c) => ({
+  id: c.id,
+  title: c.title,
+  isChecked: c.isChecked,
+  type: c.type as ChecklistType,
+})),
     }));
 
     const ranked = rankTasksByFocus(normalized);
