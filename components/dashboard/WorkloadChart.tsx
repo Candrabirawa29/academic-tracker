@@ -9,8 +9,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   ReferenceLine,
-  type TooltipProps,
-  TooltipContentProps,
 } from 'recharts';
 import { useMemo, useState } from 'react';
 import type { WorkloadPoint } from '@/lib/dashboard';
@@ -18,11 +16,10 @@ import type { WorkloadPoint } from '@/lib/dashboard';
 type Props = { data: WorkloadPoint[] };
 
 // ── Custom tooltip: financial-dashboard style ─────────────────────
-function CustomTooltip({
-  active,
-  payload,
-  label,
-}: TooltipContentProps<number, string>) {
+// Props dilonggarkan jadi `any` — recharts men-generate tipe generic untuk
+// content render-prop yang sering nggak persis cocok sama tipe custom kita,
+// dan di sini kita cuma pakai `active`, `payload`, `label` yang aman diakses manual.
+function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
 
   const value = payload[0].value as number;
@@ -203,7 +200,7 @@ export default function WorkloadChart({ data }: Props) {
           />
 
           <Tooltip
-            content={<CustomTooltip />}
+            content={(props: any) => <CustomTooltip {...props} />}
             cursor={{
               stroke: '#38bdf8',
               strokeWidth: 1,

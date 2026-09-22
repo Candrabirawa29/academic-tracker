@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { isChecked } = await request.json();
 
     const updated = await prisma.taskChecklist.update({
-      where: { id: params.id },
+      where: { id },
       data: { isChecked },
     });
 

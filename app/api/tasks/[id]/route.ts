@@ -1,52 +1,33 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rankTasksByFocus } from '@/lib/scoring';
-import type { ChecklistType, Task } from '@/lib/types';
 
-export async function GET(request: Request) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const { id } = await params;
+    const body = await request.json();
+    const { status, progressPercent } = body;
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId wajib diisi' },
-        { status: 400 }
-      );
+    const data: Record<string, unknown> = {};
+    if (status !== undefined) data.status = status;
+    if (progressPercent !== undefined) {
+      data.progressPercent = progressPercent;
+      data.progressUpdatedAt = new Date(); // reset jam stagnation setiap progress berubah
     }
 
-    const tasks = await prisma.task.findMany({
-      where: { userId },
+    const updated = await prisma.task.update({
+      where: { id },
+      data,
       include: { checklists: true },
     });
 
-    const normalized: Task[] = tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      description: t.description,
-      course: t.course,
-      status: t.status,
-      currentDeadline: t.currentDeadline.toISOString(),
-      progressPercent: t.progressPercent,
-      progressUpdatedAt: t.progressUpdatedAt.toISOString(),
-      difficulty: t.difficulty,
-      basePriority: t.basePriority,
-      estimatedTimeMinutes: t.estimatedTimeMinutes,
-      checklists: t.checklists.map((c) => ({
-  id: c.id,
-  title: c.title,
-  isChecked: c.isChecked,
-  type: c.type as ChecklistType,
-})),
-    }));
-
-    const ranked = rankTasksByFocus(normalized);
-
-    return NextResponse.json({ success: true, data: ranked });
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error('Error computing focus ranking:', error);
+    console.error('Error updating task:', error);
     return NextResponse.json(
-      { success: false, error: 'Gagal menghitung focus ranking' },
+      { success: false, error: 'Gagal update tugas' },
       { status: 500 }
     );
   }
