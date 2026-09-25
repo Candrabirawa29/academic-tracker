@@ -1,11 +1,14 @@
 'use client';
 
+import { Plus, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+
 type Props = {
   label: string;
   placeholder: string;
   items: string[];
   onChange: (items: string[]) => void;
-  accentClass?: string;
 };
 
 export default function ChecklistInputList({
@@ -13,7 +16,6 @@ export default function ChecklistInputList({
   placeholder,
   items,
   onChange,
-  accentClass = 'bg-gray-50 border-gray-200',
 }: Props) {
   const updateItem = (index: number, value: string) => {
     const next = [...items];
@@ -25,38 +27,44 @@ export default function ChecklistInputList({
   const removeItem = (index: number) => onChange(items.filter((_, i) => i !== index));
 
   return (
-    <div className={`p-4 rounded-lg border ${accentClass}`}>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-sm font-bold">{label}</label>
-        <button
+    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-foreground">{label}</label>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={addItem}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+          className="h-6 px-2 text-[11px] font-medium text-primary hover:text-primary/80"
         >
-          + Tambah
-        </button>
+          <Plus className="h-3 w-3 mr-1" />
+          Tambah Item
+        </Button>
       </div>
-      <div className="space-y-2">
+
+      <div className="space-y-1.5">
         {items.length === 0 && (
-          <p className="text-xs text-gray-400 italic">Belum ada item.</p>
+          <p className="text-[11px] text-muted-foreground italic py-0.5">Belum ada item ditambahkan.</p>
         )}
         {items.map((value, index) => (
-          <div key={index} className="flex gap-2">
-            <input
+          <div key={index} className="flex items-center gap-1.5">
+            <Input
               type="text"
               value={value}
               onChange={(e) => updateItem(index, e.target.value)}
               placeholder={placeholder}
-              className="flex-1 border p-2 rounded-lg text-sm"
+              className="flex-1 h-8 text-xs bg-card border-input"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => removeItem(index)}
-              className="text-gray-400 hover:text-red-600 px-2"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               aria-label="Hapus item"
             >
-              ✕
-            </button>
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
         ))}
       </div>

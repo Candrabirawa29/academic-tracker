@@ -3,25 +3,53 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Task, NewTaskPayload } from '@/lib/types';
 
-export function useTasks(userId: string) {
+export function useTasks(userId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tasks?userId=${userId}`);
+      const url = userId ? `/api/tasks?userId=${encodeURIComponent(userId)}` : '/api/tasks';
+      const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
         setTasks(result.data);
+      } else {
+        setError(result.error || 'Gagal memuat tugas');
       }
-    } catch (error) {
-      console.error('Gagal mengambil data:', error);
+    } catch (err) {
+      console.error('Gagal mengambil data:', err);
+      setError('Koneksi bermasalah');
     }
   }, [userId]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    let ignore = false;
+    async function load() {
+      try {
+        const url = userId ? `/api/tasks?userId=${encodeURIComponent(userId)}` : '/api/tasks';
+        const response = await fetch(url);
+        const result = await response.json();
+        if (!ignore) {
+          if (result.success) {
+            setTasks(result.data);
+          } else {
+            setError(result.error || 'Gagal memuat tugas');
+          }
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error('Gagal mengambil data:', err);
+          setError('Koneksi bermasalah');
+        }
+      }
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [userId]);
 
   const createTask = useCallback(
     async (payload: NewTaskPayload) => {
@@ -77,5 +105,5 @@ export function useTasks(userId: string) {
     [fetchTasks]
   );
 
-  return { tasks, loading, createTask, toggleChecklist, refetch: fetchTasks };
+  return { tasks, loading, error, createTask, toggleChecklist, refetch: fetchTasks };
 }

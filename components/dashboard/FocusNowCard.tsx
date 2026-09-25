@@ -1,45 +1,221 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useMemo } from 'react';
+import { Target, Clock, BookOpen, CheckCircle2 } from 'lucide-react';
 import type { Task } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
+import ChecklistItem from '@/components/ChecklistItem';
 
-type Props = { task: Task | null };
+type Props = {
+  task: Task | null;
+  onToggleChecklist?: (id: string, isChecked: boolean) => void;
+  readOnly?: boolean;
+};
 
-export default function FocusNowCard({ task }: Props) {
+export default function FocusNowCard({ task, onToggleChecklist, readOnly = false }: Props) {
+  // Derive explicit reason why it needs attention now (called unconditionally for rules-of-hooks)
+  const reason = useMemo(() => {
+    if (!task) return '';
+    const deadline = new Date(task.currentDeadline);
+    const now = new Date();
+    const msLeft = deadline.getTime() - now.getTime();
+    const hoursLeft = Math.round(msLeft / 3600000);
+    const daysLeft = Math.ceil(msLeft / 86400000);
+    const isPast = msLeft < 0;
+
+    const reasons: string[] = [];
+    if (isPast) {
+      reasons.push('Melewati tenggat waktu');
+    } else if (hoursLeft <= 6) {
+      reasons.push(`Sisa ${Math.max(1, hoursLeft)} jam`);
+    } else if (hoursLeft <= 24) {
+      reasons.push('Tenggat hari ini');
+    } else if (daysLeft <= 2) {
+      reasons.push('Tenggat besok');
+    }
+
+    const prepIncomplete = task.checklists?.some(
+      (c) => c.type === 'preparation_item' && !c.isChecked
+    );
+    if (prepIncomplete) {
+      reasons.push('Persiapan fisik belum lengkap');
+    }
+
+    const progress = task.progressPercent ?? 0;
+    if (progress < 50) {
+      reasons.push(`${100 - progress}% pekerjaan tersisa`);
+    }
+
+    if (task.basePriority === 'high') {
+      reasons.push('Prioritas tinggi');
+    }
+
+    return reasons.length > 0 ? reasons.join(' · ') : 'Tugas prioritas antrian utama';
+  }, [task]);
+
+  // Empty state
   if (!task) {
     return (
-      <div className="bg-white rounded-xl shadow-md p-6 text-gray-500 italic">
-        Nggak ada tugas aktif. Santai dulu! 🎉
-      </div>
+      <Card className="border-border bg-card">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Tidak Ada Tugas Mendesak</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Semua tugas berstatus selesai atau belum ada agenda prioritas aktif.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   const deadline = new Date(task.currentDeadline);
-  const hoursLeft = Math.max(0, Math.round((deadline.getTime() - Date.now()) / 3600000));
+  const now = new Date();
+  const msLeft = deadline.getTime() - now.getTime();
+  const hoursLeft = Math.round(msLeft / 3600000);
+  const daysLeft = Math.ceil(msLeft / 86400000);
+  const isPast = msLeft < 0;
+
+  const preparationItems = task.checklists?.filter(
+    (c) => c.type === 'preparation_item'
+  ) ?? [];
+
+  const subtasks = task.checklists?.filter(
+    (c) => c.type === 'subtask'
+  ) ?? [];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-      className="bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-xl shadow-lg p-6"
-    >
-      <p className="text-xs uppercase tracking-wide opacity-80 mb-1">🔥 Focus Now</p>
-      <h3 className="text-xl font-bold mb-2">{task.title}</h3>
-      {task.course && <p className="text-sm opacity-90 mb-3">{task.course}</p>}
+    <Card className="border-border bg-card shadow-xs transition-colors">
+      <CardContent className="p-5 sm:p-6 space-y-4">
+        {/* Top Header: Badge & Attention reason */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Target className="h-3.5 w-3.5" />
+            </span>
+            <span className="text-xs font-semibold text-foreground tracking-tight">
+              Fokus Utama Saat Ini
+            </span>
+            <Badge
+              variant={isPast ? 'destructive' : hoursLeft <= 24 ? 'warning' : 'info'}
+              className="text-[10px]"
+            >
+              {isPast ? 'Overdue' : hoursLeft <= 24 ? 'Mendesak' : 'Aktif'}
+            </Badge>
+          </div>
 
-      <div className="w-full bg-white/20 rounded-full h-2.5 mb-2 overflow-hidden">
-        <motion.div
-          className="bg-white h-2.5 rounded-full"
-          initial={{ width: 0 }}
-          animate={{ width: `${task.progressPercent}%` }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-        />
-      </div>
-      <div className="flex justify-between text-sm opacity-90">
-        <span>{task.progressPercent}% selesai</span>
-        <span>⏰ {hoursLeft} jam lagi</span>
-      </div>
-    </motion.div>
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span>Alasan: <strong className="text-foreground font-semibold">{reason}</strong></span>
+          </div>
+        </div>
+
+        {/* Task Details */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {task.course && (
+              <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5" />
+                {task.course}
+              </span>
+            )}
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Prioritas {task.basePriority}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Kesulitan {task.difficulty}
+            </Badge>
+          </div>
+
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+            {task.title}
+          </h2>
+
+          {task.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              {task.description}
+            </p>
+          )}
+        </div>
+
+        {/* Metrics Row: Deadline & Progress */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-border bg-muted/30 p-3.5">
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Tenggat Waktu
+            </span>
+            <p className={`text-xs font-semibold ${isPast ? 'text-destructive' : 'text-foreground'}`}>
+              {deadline.toLocaleString('id-ID', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+              <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                ({isPast ? 'Sudah lewat' : `${daysLeft > 0 ? `${daysLeft} hari lagi` : `${hoursLeft} jam lagi`}`})
+              </span>
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-medium">
+              <span className="text-muted-foreground">Progres Pengerjaan</span>
+              <span className="font-semibold text-foreground tabular-nums">
+                {task.progressPercent ?? 0}%
+              </span>
+            </div>
+            <Progress value={task.progressPercent ?? 0} className="h-1.5" />
+          </div>
+        </div>
+
+        {/* Actionable Checklists (Preparation & Subtasks) */}
+        {(preparationItems.length > 0 || subtasks.length > 0) && (
+          <div className="space-y-3 pt-1">
+            {preparationItems.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Barang / Dokumen Persiapan
+                </p>
+                <ul className="space-y-1">
+                  {preparationItems.map((item) => (
+                    <ChecklistItem
+                      key={item.id}
+                      item={item}
+                      onToggle={readOnly || !onToggleChecklist ? () => {} : onToggleChecklist}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {subtasks.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Sub-langkah Pengerjaan
+                </p>
+                <ul className="space-y-1">
+                  {subtasks.map((item) => (
+                    <ChecklistItem
+                      key={item.id}
+                      item={item}
+                      onToggle={readOnly || !onToggleChecklist ? () => {} : onToggleChecklist}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

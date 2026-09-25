@@ -48,10 +48,10 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: log }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Unique constraint violation = memang sudah pernah dicatat sebelumnya.
     // Ini kondisi normal (race condition/retry), bukan error sungguhan.
-    if (error.code === 'P2002') {
+    if (error && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === 'P2002') {
       return NextResponse.json({ success: true, exists: true });
     }
     console.error('Error creating notification log:', error);

@@ -9,6 +9,11 @@ export type Checklist = {
   type: ChecklistType;
 };
 
+// Alias to ensure consistent naming across components
+export type ChecklistItem = Checklist;
+
+export type TaskStatus = 'not_started' | 'in_progress' | 'completed' | string;
+
 export type Task = {
   id: string;
   title: string;
@@ -34,4 +39,16 @@ export type NewTaskPayload = {
   basePriority: Priority;
   estimatedTimeMinutes: number;
   checklists: { title: string; type: ChecklistType }[];
+};
+
+export type AuthUser = {
+  id: string;
+  name: string;
+  whatsappNumber?: string;
+};
+
+export type SessionPayload = {
+  userId: string;
+  name: string;
+  exp: number;
 };

@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkMutationAuth } from '@/lib/auth';
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await checkMutationAuth(request);
+    if (!auth.authorized) {
+      return NextResponse.json(
+        { success: false, error: 'Akses ditolak: Hanya pemilik atau bot yang dapat mengubah checklist.' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const { isChecked } = await request.json();
 
