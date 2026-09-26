@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Task } from '@/lib/types';
 import ChecklistItem from './ChecklistItem';
+import { extractUrls } from '@/lib/urlUtils';
 import {
   Calendar,
   BookOpen,
@@ -11,6 +12,8 @@ import {
   CheckSquare,
   Pencil,
   Trash2,
+  Eye,
+  Link2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -21,6 +24,7 @@ type Props = {
   onToggleChecklist?: (id: string, isChecked: boolean) => void;
   onEdit?: (task: Task) => void;
   onDelete?: (task: Task) => void;
+  onViewDetail?: (task: Task) => void;
   readOnly?: boolean;
 };
 
@@ -29,6 +33,7 @@ export default function TaskCard({
   onToggleChecklist,
   onEdit,
   onDelete,
+  onViewDetail,
   readOnly = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -48,6 +53,10 @@ export default function TaskCard({
   const deadline = new Date(task.currentDeadline);
   const now = new Date();
   const isPast = deadline < now && task.status !== 'completed';
+
+  const hasLinks = useMemo(() => {
+    return extractUrls(task.description).length > 0;
+  }, [task.description]);
 
   const statusVariant: 'success' | 'info' | 'secondary' = {
     completed: 'success' as const,
@@ -88,23 +97,43 @@ export default function TaskCard({
               <Badge variant={priorityVariant} className="text-[10px] h-5 px-1.5">
                 {task.basePriority === 'high' ? 'Tinggi' : task.basePriority === 'medium' ? 'Sedang' : 'Rendah'}
               </Badge>
+
+              {hasLinks && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-5 px-1.5 font-normal text-primary border-primary/30 bg-primary/5 flex items-center gap-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => onViewDetail?.(task)}
+                  title="Tugas memiliki tautan pengerjaan / pengumpulan"
+                >
+                  <Link2 className="h-2.5 w-2.5" />
+                  <span>Ada Link</span>
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-baseline gap-2">
-              <h3 className="text-sm font-semibold text-foreground truncate">
+              <h3
+                onClick={() => onViewDetail?.(task)}
+                className="text-sm font-semibold text-foreground truncate cursor-pointer hover:text-primary transition-colors"
+                title="Klik untuk melihat detail lengkap tugas"
+              >
                 {task.title}
               </h3>
             </div>
 
             {task.description && (
-              <p className="text-xs text-muted-foreground line-clamp-1">
+              <p
+                onClick={() => onViewDetail?.(task)}
+                className="text-xs text-muted-foreground line-clamp-1 cursor-pointer hover:text-foreground/80 transition-colors"
+                title="Klik untuk membuka detail lengkap"
+              >
                 {task.description}
               </p>
             )}
           </div>
 
           {/* Metrics & actions */}
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50 text-xs">
             {/* Deadline */}
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -112,13 +141,13 @@ export default function TaskCard({
                 {deadline.toLocaleDateString('id-ID', {
                   day: 'numeric',
                   month: 'short',
-                })} · {deadline.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                })} • {deadline.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
 
             {/* Progress */}
-            <div className="flex items-center gap-2 min-w-[90px]">
-              <Progress value={task.progressPercent ?? 0} className="w-14 h-1.5" />
+            <div className="flex items-center gap-2 min-w-[80px]">
+              <Progress value={task.progressPercent ?? 0} className="w-12 h-1.5" />
               <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {task.progressPercent ?? 0}%
               </span>
@@ -141,6 +170,21 @@ export default function TaskCard({
                 )}
               </Button>
             )}
+
+            {/* Tombol Lihat Detail (Tersedia untuk semua: publik & admin) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetail?.(task);
+              }}
+              className="h-7 px-2 text-xs font-medium gap-1 text-foreground hover:bg-accent border-border"
+              title="Lihat Detail Tugas & Link Pengumpulan"
+            >
+              <Eye className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">Detail</span>
+            </Button>
 
             {/* Action Buttons: Edit & Delete (hanya saat not readOnly) */}
             {!readOnly && (
