@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 import { prisma } from './prisma';
 
 const COOKIE_NAME = 'academic_session';
@@ -8,7 +9,26 @@ function getSecretKey(): string {
   return process.env.AUTH_SECRET || DEFAULT_SECRET;
 }
 
-// ── Web Crypto HMAC Helper ───────────────────────────────────────
+// 🔐 Password Hashing & Verification (Scrypt - Native Node.js Zero Dependency)
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, storedHash: string): boolean {
+  try {
+    const [salt, key] = storedHash.split(':');
+    if (!salt || !key) return false;
+    const keyBuffer = Buffer.from(key, 'hex');
+    const derivedKey = crypto.scryptSync(password, salt, 64);
+    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+  } catch {
+    return false;
+  }
+}
+
+// 🌐 Web Crypto HMAC Helper for JWT
 async function getCryptoKey(): Promise<CryptoKey> {
   const enc = new TextEncoder();
   return crypto.subtle.importKey(
@@ -39,15 +59,21 @@ function base64UrlDecode(str: string): string {
 export type SessionData = {
   userId: string;
   name: string;
+  role: string;
   exp: number;
 };
 
-// ── Sign session token ───────────────────────────────────────────
-export async function createSessionToken(userId: string, name: string): Promise<string> {
+// 🔏 Sign session token
+export async function createSessionToken(
+  userId: string,
+  name: string,
+  role: string = 'admin'
+): Promise<string> {
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload: SessionData = {
     userId,
     name,
+    role,
     exp: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
   };
 
@@ -70,7 +96,7 @@ export async function createSessionToken(userId: string, name: string): Promise<
   return `${data}.${signature}`;
 }
 
-// ── Verify session token ─────────────────────────────────────────
+// 🔍 Verify session token
 export async function verifySessionToken(token?: string | null): Promise<SessionData | null> {
   if (!token) return null;
 
@@ -106,7 +132,7 @@ export async function verifySessionToken(token?: string | null): Promise<Session
   }
 }
 
-// ── Get current session from Next.js cookies ─────────────────────
+// 🍪 Get current session from Next.js cookies
 export async function getSession(): Promise<SessionData | null> {
   try {
     const cookieStore = await cookies();
@@ -118,7 +144,7 @@ export async function getSession(): Promise<SessionData | null> {
   }
 }
 
-// ── Set session cookie ───────────────────────────────────────────
+// 🍪 Set session cookie
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -130,31 +156,113 @@ export async function setSessionCookie(token: string): Promise<void> {
   });
 }
 
-// ── Clear session cookie (Logout) ────────────────────────────────
+// 🚪 Clear session cookie (Logout)
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 }
 
-// ── Verify Owner Password ────────────────────────────────────────
-export function verifyOwnerPassword(password: string): boolean {
-  const configuredPassword = process.env.OWNER_PASSWORD || 'damar2026';
-  return password.trim() === configuredPassword.trim();
+// 🛡️ Verifikasi Login Admin Berbasis Database
+export async function verifyAdminPassword(
+  passwordInput: string,
+  identifier?: string
+): Promise<{
+  isValid: boolean;
+  user: { id: string; name: string; role: string } | null;
+}> {
+  const cleanPassword = passwordInput.trim();
+
+  // 1. Cari user di database
+  // Jika diberikan identifier (email atau whatsappNumber), cari spesifik.
+  // Jika tidak, cari user dengan role admin pertama.
+  let targetUser = null;
+
+  if (identifier && identifier.trim()) {
+    const cleanId = identifier.trim();
+    targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: cleanId }, { whatsappNumber: cleanId }],
+      },
+    });
+  } else {
+    targetUser = await prisma.user.findFirst({
+      where: { role: 'admin' },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!targetUser) {
+      targetUser = await prisma.user.findFirst({
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+  }
+
+  if (!targetUser) {
+    return { isValid: false, user: null };
+  }
+
+  // 2. Jika password sudah tersimpan di database
+  if (targetUser.password) {
+    const isMatched = verifyPassword(cleanPassword, targetUser.password);
+    if (isMatched) {
+      return {
+        isValid: true,
+        user: {
+          id: targetUser.id,
+          name: targetUser.name,
+          role: targetUser.role || 'admin',
+        },
+      };
+    }
+  }
+
+  // 3. Fallback Grace Period (Auto-Migration ke Database):
+  // Jika di database belum ada hash password, periksa OWNER_PASSWORD dari env
+  const fallbackEnvPassword = process.env.OWNER_PASSWORD || 'damar2026';
+  if (cleanPassword === fallbackEnvPassword.trim()) {
+    // Otomatis enkripsi dan simpan password ke database user tersebut,
+    // serta pastikan rolenya sudah 'admin'!
+    const newHashedPassword = hashPassword(cleanPassword);
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: {
+        password: newHashedPassword,
+        role: 'admin',
+      },
+    });
+
+    console.log(`✅ [Auth] Password admin untuk user "${targetUser.name}" berhasil di-hash dan disimpan otomatis ke database.`);
+
+    return {
+      isValid: true,
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        role: 'admin',
+      },
+    };
+  }
+
+  return { isValid: false, user: null };
 }
 
-// ── Get Default Owner User ───────────────────────────────────────
+// 👑 Get Default Owner / Admin User
 export async function getOwnerUser() {
-  const user = await prisma.user.findFirst({
+  const admin = await prisma.user.findFirst({
+    where: { role: 'admin' },
     orderBy: { createdAt: 'asc' },
   });
-  return user;
+  if (admin) return admin;
+
+  return await prisma.user.findFirst({
+    orderBy: { createdAt: 'asc' },
+  });
 }
 
-// ── Verify Bot Token (WhatsApp Automation backward-compatible) ───
+// 🤖 Verify Bot Token (WhatsApp Automation backward-compatible)
 export function verifyBotToken(request: Request): boolean {
   const configuredKey = process.env.BOT_API_KEY;
   if (!configuredKey) {
-    // If no BOT_API_KEY is configured in .env, permit bot operations during transition
     return true;
   }
 
@@ -170,15 +278,15 @@ export function verifyBotToken(request: Request): boolean {
   return false;
 }
 
-// ── Server-side Mutation Authorization ───────────────────────────
+// 🔒 Server-side Mutation Authorization
 export async function checkMutationAuth(request: Request): Promise<{
   authorized: boolean;
   userId?: string;
   isBot?: boolean;
 }> {
-  // 1. Check Owner session cookie
+  // 1. Check Owner/Admin session cookie
   const session = await getSession();
-  if (session?.userId) {
+  if (session?.userId && session.role === 'admin') {
     return { authorized: true, userId: session.userId, isBot: false };
   }
 

@@ -44,11 +44,14 @@ export type NewTaskPayload = {
 export type AuthUser = {
   id: string;
   name: string;
+  role: string;
+  email?: string;
   whatsappNumber?: string;
 };
 
 export type SessionPayload = {
   userId: string;
   name: string;
+  role: string;
   exp: number;
 };
