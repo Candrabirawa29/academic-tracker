@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Task, NewTaskPayload } from '@/lib/types';
+import { toast } from 'sonner';
+import type { Task, NewTaskPayload, UpdateTaskPayload } from '@/lib/types';
 
 export function useTasks(userId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -52,7 +53,7 @@ export function useTasks(userId?: string) {
   }, [userId]);
 
   const createTask = useCallback(
-    async (payload: NewTaskPayload) => {
+    async (payload: NewTaskPayload): Promise<boolean> => {
       setLoading(true);
       try {
         const response = await fetch('/api/tasks', {
@@ -60,13 +61,17 @@ export function useTasks(userId?: string) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (response.ok) {
+        const result = await response.json();
+        if (response.ok && result.success) {
+          toast.success('Agenda tugas berhasil dibuat! 🎯');
           await fetchTasks();
           return true;
         }
+        toast.error(result.error || 'Gagal membuat tugas');
         return false;
       } catch (error) {
         console.error('Gagal menyimpan tugas:', error);
+        toast.error('Terjadi kesalahan jaringan saat membuat tugas');
         return false;
       } finally {
         setLoading(false);
@@ -75,8 +80,59 @@ export function useTasks(userId?: string) {
     [fetchTasks]
   );
 
-  // Optimistic update: UI langsung berubah, baru sinkron ke server di belakang.
-  // Kalau gagal, di-refetch buat balikin ke state yang bener.
+  const updateTask = useCallback(
+    async (taskId: string, payload: UpdateTaskPayload): Promise<boolean> => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+          toast.success('Tugas berhasil diperbarui! ✨');
+          await fetchTasks();
+          return true;
+        }
+        toast.error(result.error || 'Gagal memperbarui tugas');
+        return false;
+      } catch (error) {
+        console.error('Gagal update tugas:', error);
+        toast.error('Terjadi kesalahan jaringan saat update tugas');
+        return false;
+      }
+    },
+    [fetchTasks]
+  );
+
+  const deleteTask = useCallback(
+    async (taskId: string): Promise<boolean> => {
+      try {
+        // Optimistic update: langsung bersihkan dari list lokal
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: 'DELETE',
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+          toast.success('Tugas berhasil dihapus! 🗑️');
+          await fetchTasks();
+          return true;
+        }
+        toast.error(result.error || 'Gagal menghapus tugas');
+        await fetchTasks();
+        return false;
+      } catch (error) {
+        console.error('Gagal menghapus tugas:', error);
+        toast.error('Terjadi kesalahan jaringan saat menghapus tugas');
+        await fetchTasks();
+        return false;
+      }
+    },
+    [fetchTasks]
+  );
+
   const toggleChecklist = useCallback(
     async (checklistId: string, isChecked: boolean) => {
       setTasks((prev) =>
@@ -105,5 +161,14 @@ export function useTasks(userId?: string) {
     [fetchTasks]
   );
 
-  return { tasks, loading, error, createTask, toggleChecklist, refetch: fetchTasks };
+  return {
+    tasks,
+    loading,
+    error,
+    createTask,
+    updateTask,
+    deleteTask,
+    toggleChecklist,
+    refetch: fetchTasks,
+  };
 }

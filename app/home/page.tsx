@@ -4,10 +4,13 @@ import { useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import TaskList from '@/components/TaskList';
 import TaskModal from '@/components/TaskModal';
+import EditTaskModal from '@/components/EditTaskModal';
+import DeleteTaskDialog from '@/components/DeleteTaskDialog';
 import StatsOverview from '@/components/dashboard/StatsOverview';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import FocusNowCard from '@/components/dashboard/FocusNowCard';
 import TomorrowChecklist from '@/components/dashboard/TomorrowChecklist';
+import type { Task } from '@/lib/types';
 import {
   computeStats,
   computeWorkload,
@@ -38,8 +41,10 @@ function getGreeting(hour: number) {
 }
 
 export default function PrivateDashboardPage() {
-  const { tasks, loading, createTask, toggleChecklist } = useTasks();
+  const { tasks, loading, createTask, updateTask, deleteTask, toggleChecklist } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const stats = useMemo(() => computeStats(tasks), [tasks]);
   const workload = useMemo(() => computeWorkload(tasks), [tasks]);
@@ -64,7 +69,7 @@ export default function PrivateDashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              {greeting}, Owner
+              {greeting}, Damar 👋
             </h1>
             {activeCount > 0 && (
               <Badge variant="secondary" className="text-[11px] font-medium">
@@ -145,6 +150,8 @@ export default function PrivateDashboardPage() {
             <TaskList
               tasks={tasks}
               onToggleChecklist={toggleChecklist}
+              onEdit={(t) => setTaskToEdit(t)}
+              onDelete={(t) => setTaskToDelete(t)}
               readOnly={false}
             />
           </section>
@@ -236,6 +243,22 @@ export default function PrivateDashboardPage() {
         onClose={() => setIsModalOpen(false)}
         loading={loading}
         onSubmit={createTask}
+      />
+
+      {/* Task Edit Modal */}
+      <EditTaskModal
+        isOpen={Boolean(taskToEdit)}
+        task={taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        onUpdate={updateTask}
+      />
+
+      {/* Task Delete Dialog */}
+      <DeleteTaskDialog
+        isOpen={Boolean(taskToDelete)}
+        task={taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onDelete={deleteTask}
       />
 
       {/* ── Footer ────────────────────────────────────────────── */}

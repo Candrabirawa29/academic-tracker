@@ -3,7 +3,15 @@
 import { useState } from 'react';
 import type { Task } from '@/lib/types';
 import ChecklistItem from './ChecklistItem';
-import { Calendar, BookOpen, ChevronDown, ChevronUp, CheckSquare } from 'lucide-react';
+import {
+  Calendar,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  CheckSquare,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -11,19 +19,25 @@ import { Button } from '@/components/ui/button';
 type Props = {
   task: Task;
   onToggleChecklist?: (id: string, isChecked: boolean) => void;
+  onEdit?: (task: Task) => void;
+  onDelete?: (task: Task) => void;
   readOnly?: boolean;
 };
 
-export default function TaskCard({ task, onToggleChecklist, readOnly = false }: Props) {
+export default function TaskCard({
+  task,
+  onToggleChecklist,
+  onEdit,
+  onDelete,
+  readOnly = false,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
 
-  const preparationItems = task.checklists?.filter(
-    (c) => c.type === 'preparation_item'
-  ) ?? [];
+  const preparationItems =
+    task.checklists?.filter((c) => c.type === 'preparation_item') ?? [];
 
-  const subtasks = task.checklists?.filter(
-    (c) => c.type === 'subtask'
-  ) ?? [];
+  const subtasks =
+    task.checklists?.filter((c) => c.type === 'subtask') ?? [];
 
   const totalChecklists = preparationItems.length + subtasks.length;
   const completedChecklists = [
@@ -90,7 +104,7 @@ export default function TaskCard({ task, onToggleChecklist, readOnly = false }: 
           </div>
 
           {/* Metrics & actions */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50 text-xs">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/50 text-xs">
             {/* Deadline */}
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -103,8 +117,8 @@ export default function TaskCard({ task, onToggleChecklist, readOnly = false }: 
             </div>
 
             {/* Progress */}
-            <div className="flex items-center gap-2 min-w-[100px]">
-              <Progress value={task.progressPercent ?? 0} className="w-16 h-1.5" />
+            <div className="flex items-center gap-2 min-w-[90px]">
+              <Progress value={task.progressPercent ?? 0} className="w-14 h-1.5" />
               <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                 {task.progressPercent ?? 0}%
               </span>
@@ -126,6 +140,37 @@ export default function TaskCard({ task, onToggleChecklist, readOnly = false }: 
                   <ChevronDown className="h-3 w-3 ml-1" />
                 )}
               </Button>
+            )}
+
+            {/* Action Buttons: Edit & Delete (hanya saat not readOnly) */}
+            {!readOnly && (
+              <div className="flex items-center gap-0.5 border-l border-border/60 pl-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit?.(task);
+                  }}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Edit Tugas"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete?.(task);
+                  }}
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  title="Hapus Tugas"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )}
           </div>
         </div>

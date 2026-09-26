@@ -41,6 +41,19 @@ export type NewTaskPayload = {
   checklists: { title: string; type: ChecklistType }[];
 };
 
+export type UpdateTaskPayload = {
+  title?: string;
+  description?: string | null;
+  course?: string | null;
+  status?: TaskStatus;
+  currentDeadline?: string;
+  difficulty?: Difficulty;
+  basePriority?: Priority;
+  estimatedTimeMinutes?: number;
+  progressPercent?: number;
+  checklists?: { id?: string; title: string; type: ChecklistType; isChecked?: boolean }[];
+};
+
 export type AuthUser = {
   id: string;
   name: string;

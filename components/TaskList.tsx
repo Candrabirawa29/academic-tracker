@@ -7,10 +7,18 @@ import { CheckCircle2 } from 'lucide-react';
 type Props = {
   tasks: Task[];
   onToggleChecklist?: (id: string, isChecked: boolean) => void;
+  onEdit?: (task: Task) => void;
+  onDelete?: (task: Task) => void;
   readOnly?: boolean;
 };
 
-export default function TaskList({ tasks, onToggleChecklist, readOnly = false }: Props) {
+export default function TaskList({
+  tasks,
+  onToggleChecklist,
+  onEdit,
+  onDelete,
+  readOnly = false,
+}: Props) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card/50 p-8 text-center">
@@ -30,6 +38,8 @@ export default function TaskList({ tasks, onToggleChecklist, readOnly = false }:
           key={task.id}
           task={task}
           onToggleChecklist={onToggleChecklist}
+          onEdit={onEdit}
+          onDelete={onDelete}
           readOnly={readOnly}
         />
       ))}
